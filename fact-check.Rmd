@@ -1,0 +1,449 @@
+---
+title: "factcheck"
+output: html_document
+date: "2023-01-16"
+---
+
+```{r}
+
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(readr)
+library(janitor)
+library(lubridate)
+options(digits=3)
+options(scipen=999)
+'%notin%' <- Negate('%in%')
+
+#does a standard group_by and count() with percentage
+grouper <- function(input_df, group_by_column, new_column_name = "n()"){
+  output_df <- input_df %>%
+    group_by(.data[[group_by_column]]) %>%
+    summarise(temp_count = n()) %>%
+    mutate(percent = temp_count/sum(temp_count)*100) %>%
+    arrange(desc(percent)) %>%
+    rename(!!new_column_name := temp_count)
+  return(output_df)
+}
+
+#group/counts every column in input dataframe
+group_count <- function(input_df, group_column_name='n()', state_filter=NA, start_col = 1){
+  column_names <- colnames(input_df)
+  if(!is.na(state_filter)){
+    input_df <- input_df %>%
+      filter(state == state_filter)
+  }
+  for (column in column_names[start_col:length(column_names)]){
+    output <- grouper(input_df, column, group_column_name)
+    print(output)
+  }
+}
+
+grouper_sum <- function(input_df, group_by_column, sum_column, new_column_name = "n()"){
+  output_df <- input_df %>%
+    group_by(.data[[group_by_column]]) %>%
+    summarise(temp_count = sum(.data[[sum_column]])) %>%
+    mutate(percent = temp_count/sum(temp_count)*100) %>%
+    arrange(desc(percent)) %>%
+    rename(!!new_column_name := temp_count)
+  return(output_df)
+  
+}
+
+#lowers case of every character column in a dataframe
+lower_df <- function(input_df){
+  names <- colnames(input_df)
+  output_df <- input_df
+  names <- colnames(output_df)
+  for (name in names){
+    if (is.character(output_df[[name]])){
+      output_df[[name]] <- tolower(output_df[[name]])
+      #print('yes')
+    } else {
+      output_df[[name]] <- output_df[[name]]
+      #print('no')
+    }
+  }
+  return(output_df)
+}
+
+```
+
+## IMPORT
+
+```{r}
+
+#CREATING LIST OF COUNTIES 
+counties <- c("allegany", "anne arundel", "baltimore city", "baltimore county", "calvert", "caroline", "carroll", "cecil", "charles", "dorchester", "frederick", "garrett", "harford", "howard", "kent", "montgomery", "prince george's", "queen anne's", "st. mary's", "somerset", "talbot", "washington", "wicomico", "snow hill", "ocean city")
+
+#CREATING COLUMN NAMES
+headers <- c("year", "month", "county", "filed", "defendant_appeared", "dismissed", "tenant_holding_over", "breach_of_lease", "levy_in_distress", "wrongful_detainer", "grantor_in_possession", "warrant_of_restitution", "evictions", "rent_escrows")
+
+#IMPORTING EACH CSV, CLEANING AND COMBINING INTO MASTER
+x2019_q3_q4 <- read_csv("data/csvs/tabula-tenant-landlord-2019-q3-q4.csv", col_names = FALSE) %>%
+  row_to_names(row_number = 2) %>%
+  clean_names() %>%
+  lower_df() %>%
+  filter(county %in% counties) %>%
+  mutate(month = case_when(
+    row_number() %in% 1:25 ~ 7,
+    row_number() %in% 26:50 ~ 8,
+    row_number() %in% 51:75 ~ 9,
+    row_number() %in% 76:100 ~ 10,
+    row_number() %in% 101:125 ~ 11,
+    row_number() %in% 126:150 ~ 12,
+  )) %>%
+  mutate(year = "2019") %>%
+  relocate(year, month) %>%
+  select(-district)
+
+colnames(x2019_q3_q4) <- headers
+
+x2020 <- read_csv("data/csvs/tabula-tenant-landlord-2020.csv", col_names = FALSE) %>%
+  row_to_names(row_number = 2) %>%
+  clean_names() %>%
+  lower_df() %>%
+  filter(county %in% counties) %>% 
+  select(-na, -district) %>%
+  mutate(month = case_when(
+    row_number() %in% 1:25 ~ 1,
+    row_number() %in% 26:50 ~ 2,
+    row_number() %in% 51:75 ~ 3,
+    row_number() %in% 76:100 ~ 4,
+    row_number() %in% 101:125 ~ 5,
+    row_number() %in% 126:150 ~ 6,
+    row_number() %in% 151:175 ~ 7,
+    row_number() %in% 176:200 ~ 8,
+    row_number() %in% 201:225 ~ 9,
+    row_number() %in% 226:250 ~ 10,
+    row_number() %in% 251:275 ~ 11,
+    row_number() %in% 276:300 ~ 12
+  )) %>%
+  mutate(year = "2020") %>%
+  relocate(year, month)
+
+colnames(x2020) <- headers
+
+x2021 <- read_csv("data/csvs/tabula-tenant-landlord-2021.csv", col_names = FALSE) %>%
+  row_to_names(row_number = 2) %>%
+  clean_names() %>%
+  lower_df() %>%
+  filter(county %in% counties) %>% 
+  select(-district) %>%
+  mutate(month = case_when(
+    row_number() %in% 1:25 ~ 1,
+    row_number() %in% 26:50 ~ 2,
+    row_number() %in% 51:75 ~ 3,
+    row_number() %in% 76:100 ~ 4,
+    row_number() %in% 101:125 ~ 5,
+    row_number() %in% 126:150 ~ 6,
+    row_number() %in% 151:175 ~ 7,
+    row_number() %in% 176:200 ~ 8,
+    row_number() %in% 201:225 ~ 9,
+    row_number() %in% 226:250 ~ 10,
+    row_number() %in% 251:275 ~ 11,
+    row_number() %in% 276:300 ~ 12
+  )) %>%
+  mutate(year = "2021") %>%
+  relocate(year, month)
+
+colnames(x2021) <- c("year", "month", "county", "filed", "defendant_appeared", "dismissed", "tenant_holding_over", "breach_of_lease", "levy_in_distress", "wrongful_detainer", "grantor_in_possession", "warrant_of_restitution", "evictions", "rent_escrows")
+
+x2022 <- read_csv("data/csvs/tabula-tenant-landlord-2022.csv", col_names = FALSE) %>%
+  row_to_names(row_number = 2) %>%
+  clean_names() %>%
+  lower_df() %>%
+  filter(county %in% counties) %>% 
+  select(-na, -district) %>%
+  mutate(month = case_when(
+    row_number() %in% 1:25 ~ 1,
+    row_number() %in% 26:50 ~ 2,
+    row_number() %in% 51:75 ~ 3,
+    row_number() %in% 76:100 ~ 4,
+    row_number() %in% 101:125 ~ 5,
+    row_number() %in% 126:150 ~ 6,
+    row_number() %in% 151:175 ~ 7,
+    row_number() %in% 176:200 ~ 8,
+    row_number() %in% 201:225 ~ 9,
+    row_number() %in% 226:250 ~ 10,
+    row_number() %in% 251:275 ~ 11,
+    row_number() %in% 276:300 ~ 12
+  )) %>%
+  mutate(year = "2022") %>%
+  relocate(year, month)
+
+colnames(x2022) <- headers
+
+master <- x2022 %>%
+  bind_rows(x2019_q3_q4, x2020, x2021) %>%
+  select(year, month, county, filed, defendant_appeared, dismissed, tenant_holding_over, warrant_of_restitution, evictions) %>%
+  mutate(evictions = as.character(evictions)) %>%
+  #bind_rows(x2019_q1_q2) %>%
+  mutate(
+    filed = as.numeric(gsub(",", "", filed)),
+    defendant_appeared = as.numeric(gsub(",", "", defendant_appeared)),
+    dismissed = as.numeric(gsub(",", "", dismissed)),
+    tenant_holding_over = as.numeric(gsub(",", "", tenant_holding_over)),
+    warrant_of_restitution = as.numeric(gsub(",", "", warrant_of_restitution)),
+    evictions = as.numeric(gsub(",", "", evictions))
+  ) %>%
+  mutate(county = case_when(
+    county == "snow hill" ~ "worcester",
+    county == "ocean city" ~ "worcester",
+    TRUE ~ county
+  )) %>%
+  group_by(year, month, county) %>%
+  summarise(
+    filed = sum(filed),
+    defendant_appeared = sum(defendant_appeared),
+    dismissed = sum(dismissed),
+    tenant_holding_over = sum(tenant_holding_over),
+    warrant_of_restitution = sum(warrant_of_restitution),
+    evictions = sum(evictions)
+            ) %>%
+  ungroup() %>%
+  mutate(viz_date = mdy(paste0(month, "/1/", year)))
+
+master[is.na(master)] <- 0
+
+# IMPORTING CENSUS
+
+census <- read_csv("data/02_county_pl94171_standard_compare_2010_2020.csv") %>%
+  clean_names() %>%
+  filter(state_abbr == "MD") %>%
+  select(county_name, x2020_pop) %>%
+  lower_df() %>%
+  mutate(county_name = case_when(
+    str_detect(county_name, "baltimore") == TRUE ~ county_name,
+    TRUE ~ gsub(" county", "", county_name)
+  )) %>%
+  rename(county = county_name) %>%
+  mutate(pop_10k = x2020_pop/10000)
+
+rm(x2019_q3_q4, x2020, x2021, x2022)
+
+```
+
+
+"After falling to an unprecedented low during the pandemic, eviction numbers are creeping back toward 2019 rates in Maryland, according to data from the Maryland Judiciary and the Baltimore City Sheriff’s Office."
+
+```{r}
+
+master %>%
+  group_by(viz_date) %>%
+  summarise(evictions = sum(evictions)) %>%
+  arrange(desc(viz_date))
+
+```
+
+"With eviction bans having long expired, rental assistance running low, courts back up and running at full speed, and rents sky-high, 2022 saw a rapid uptick in evictions statewide — especially in the summer."
+
+```{r}
+
+master %>%
+  #filter(month %in% c(1, 2, 3, 4, 5, 6, 7, 8, 9)) %>%
+  mutate(quarter = case_when(
+    month %in% c(1, 2, 3) ~ mdy(paste0("1-1-", year)),
+    month %in% c(4, 5, 6) ~ mdy(paste0("4-1-", year)),
+    month %in% c(7, 8, 9) ~ mdy(paste0("7-1-", year)),
+    month %in% c(10, 11, 12) ~ mdy(paste0("10-1-", year))
+  )) %>%
+  group_by(quarter, county) %>%
+  summarise(evictions = sum(evictions)) %>%
+  arrange(quarter) %>%
+  pivot_wider(values_from = evictions, names_from = quarter) %>%
+  adorn_totals("row") %>%
+  as.data.frame()
+
+```
+
+"Between August and September 2022, 13 jurisdictions, including Baltimore, recorded an eviction tally in at least one month that exceeded the number of evictions for that month in 2019, the last year before the COVID-19 pandemic was declared."
+
+```{r}
+
+months_over_2019 <- master %>%
+  filter(year %in% c(2019, 2022)) %>%
+  select(year, month, county, evictions) %>%
+  pivot_wider(values_from = evictions, names_from = year) %>%
+  clean_names() %>%
+  mutate(exceeded_pre_pandemic = case_when(
+    x2022 > x2019 ~ TRUE,
+    TRUE ~ FALSE
+  )) %>%
+  #arrange(desc(exceeded_pre_pandemic)) %>%
+  filter(exceeded_pre_pandemic == TRUE) %>%
+  arrange(desc(county))
+
+unique(months_over_2019$county)
+
+```
+
+```{r}
+
+months_over_2019
+
+```
+
+####
+"In the last six months of 2019, 10,486 people were evicted in Maryland, including 2,920 in Baltimore City."
+
+```{r}
+
+master %>%
+  filter(year == 2019) %>%
+  group_by(year, county) %>%
+  summarise(evictions = sum(evictions)) %>%
+  ungroup() %>%
+  select(-year) %>%
+  adorn_totals("row")%>%
+  as.data.frame() %>%
+  filter(county %in% c("Total", "baltimore city"))
+
+```
+
+In the city of Baltimore, evictions this past September and November surpassed the 2019 tallies in those months, according to data provided by the Baltimore City Sheriff’s Office. 
+
+```{r}
+#Data emailed from the Baltimore City Sheriff's Office.
+
+###
+#month | 2019 | 2022
+#July | 633 | 282
+#August | 490 | 449
+#September | 466 | 487
+#October | 567 | 547
+#November | 384 | 393
+#December | 380 | 141
+
+```
+
+"Eviction numbers overall statewide still lag behind 2019 numbers, but quarterly counts have tripled since 2020: 4,107 people were evicted during the summer of 2022, 30% less than for that period in 2019, but about three times more than in the same three-month period in 2020 and about double the amount of summer 2021."
+
+```{r}
+
+master %>%
+  #filter(month %in% c(1, 2, 3, 4, 5, 6, 7, 8, 9)) %>%
+  mutate(quarter = case_when(
+    month %in% c(1, 2, 3) ~ mdy(paste0("1-1-", year)),
+    month %in% c(4, 5, 6) ~ mdy(paste0("4-1-", year)),
+    month %in% c(7, 8, 9) ~ mdy(paste0("7-1-", year)),
+    month %in% c(10, 11, 12) ~ mdy(paste0("10-1-", year))
+  )) %>%
+  group_by(quarter, county) %>%
+  summarise(evictions = sum(evictions)) %>%
+  arrange(quarter) %>%
+  pivot_wider(values_from = evictions, names_from = quarter) %>%
+  adorn_totals("row") %>%
+  as.data.frame() %>%
+  clean_names() %>%
+  select(county, x2019_07_01, x2020_07_01, x2021_07_01, x2022_07_01) %>%
+  filter(county == "Total")
+
+```
+
+"about triple"
+
+```{r}
+#2022 divided by 2020
+4107/1383
+
+```
+
+"about double"
+
+```{r}
+
+#2022 divided by 2021
+4107/2313
+
+```
+
+"30% less"
+
+```{r}
+
+#percent drop of 2019 to 2022
+(4107-5902)/5902
+
+```
+
+
+"Evictions have increased rapidly in Baltimore City, where rates once closely mirrored Baltimore County’s. In August and September, about eight people were evicted each month for every 10,000 residents. The statewide rate was a little more than two people, and Baltimore County’s was around four."
+
+```{r}
+
+#viz data lists the first of the month in lieu of the month for ease of computing
+temp_evictions_per_10k_by_county <- master %>%
+  select(county, viz_date, evictions) %>%
+  left_join(census) %>%
+  mutate(evictions_per_10k = evictions/pop_10k) 
+
+temp_statewide <- temp_evictions_per_10k_by_county %>%
+  group_by(viz_date) %>%
+  summarise(pop_10k = sum(pop_10k),
+            evictions = sum(evictions)) %>%
+  mutate(statewide = evictions/pop_10k) %>%
+  select(viz_date, statewide)
+
+
+temp_evictions_per_10k_by_county %>%
+  select(-c(evictions, x2020_pop, pop_10k, evictions)) %>%
+  pivot_wider(names_from = county, values_from = evictions_per_10k) %>%
+  arrange(desc(viz_date)) %>%
+  left_join(temp_statewide) %>%
+  clean_names() %>%
+  select(viz_date, baltimore_city, baltimore_county, statewide) %>%
+  slice(1:2)
+
+```
+
+"The most recent eviction numbers show that while they’ve increased, filings remain below pre-pandemic rates, reflecting both the availability of rental assistance and a reform adopted statewide in 2021 that requires landlords to provide tenants with 10 days notice before they file for an eviction with the courts."
+
+```{r}
+
+temp_filings_per_10k_by_county <- master %>%
+  select(county, viz_date, filed) %>%
+  left_join(census) %>%
+  mutate(filed_per_10k = filed/pop_10k) 
+
+temp_statewide_filings <- temp_filings_per_10k_by_county %>%
+  group_by(viz_date) %>%
+  summarise(pop_10k = sum(pop_10k),
+            filed = sum(filed)) %>%
+  mutate(statewide = filed/pop_10k) %>%
+  select(viz_date, statewide)
+
+
+temp_filings_per_10k_by_county %>%
+  select(-c(filed, x2020_pop, pop_10k)) %>%
+  pivot_wider(names_from = county, values_from = filed_per_10k) %>%
+  arrange(desc(viz_date)) %>%
+  left_join(temp_statewide_filings)
+
+
+```
+
+"Filings were higher throughout 2022 for tenant-holding-over cases — which a landlord can file when a tenant stays in their unit beyond the terms of their lease — than in 2019."
+
+```{r}
+
+temp_tenant_holding_over_per_10k_by_county <- master %>%
+  select(county, viz_date, tenant_holding_over) %>%
+  left_join(census) %>%
+  mutate(tenant_holding_over_per_10k = tenant_holding_over/pop_10k) 
+
+temp_statewide_filings <- temp_tenant_holding_over_per_10k_by_county %>%
+  group_by(viz_date) %>%
+  summarise(pop_10k = sum(pop_10k),
+            tenant_holding_over = sum(tenant_holding_over)) %>%
+  mutate(statewide = tenant_holding_over/pop_10k) %>%
+  select(viz_date, statewide)
+
+
+temp_tenant_holding_over_per_10k_by_county %>%
+  select(-c(tenant_holding_over, x2020_pop, pop_10k)) %>%
+  pivot_wider(names_from = county, values_from = tenant_holding_over_per_10k) %>%
+  arrange(desc(viz_date)) %>%
+  left_join(temp_statewide_filings)
+
+```
